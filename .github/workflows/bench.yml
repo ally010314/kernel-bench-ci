@@ -1,0 +1,83 @@
+name: kernel-bench
+
+on:
+  push:
+    branches: [main]
+    paths: ["kernels/**", "bench/**", "build.sh", "baselines/**", ".github/workflows/bench.yml"]
+  pull_request:
+    paths: ["kernels/**", "bench/**", "build.sh", "baselines/**", ".github/workflows/bench.yml"]
+  workflow_dispatch:
+
+jobs:
+  bench:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # 논문 커널 (kernels/paper), 5개 모델. 가중치는 합성이고 크기 · 타일만 모델을 따른다.
+          # Orin 은 ViT-L · Mixer-L 이 같은 커널이다 (SASS 동일). 시리즈를 모델별로 남기려고 둘 다 잰다.
+          - { device: orin, model: mixerL, arch: sm_87, cuda: /usr/local/cuda, plugin: 1, gpu: "" }
+          - { device: orin, model: vitL, arch: sm_87, cuda: /usr/local/cuda, plugin: 1, gpu: "" }
+          - { device: orin, model: mixerB, arch: sm_87, cuda: /usr/local/cuda, plugin: 1, gpu: "" }
+          - { device: orin, model: resmlpB, arch: sm_87, cuda: /usr/local/cuda, plugin: 1, gpu: "" }
+          - { device: orin, model: deitS, arch: sm_87, cuda: /usr/local/cuda, plugin: 1, gpu: "" }
+          # RTX 서버 <host-ada> (runner 라벨 ada). TensorRT 시스템 패키지가 없어 플러그인 빌드는 생략 (하네스만 잰다).
+          # GPU 4장 중 GPU3 하나만 쓴다 — k3s Job 과 겹치지 않게 아래 Guard 가 사용률 · 클럭을 확인한다.
+          - { device: ada, model: mixerL, arch: sm_89, cuda: /usr, plugin: 0, gpu: "3", expect_sm: 1560 }
+          - { device: ada, model: vitL, arch: sm_89, cuda: /usr, plugin: 0, gpu: "3", expect_sm: 1560 }
+          - { device: ada, model: mixerB, arch: sm_89, cuda: /usr, plugin: 0, gpu: "3", expect_sm: 1560 }
+          - { device: ada, model: resmlpB, arch: sm_89, cuda: /usr, plugin: 0, gpu: "3", expect_sm: 1560 }
+          - { device: ada, model: deitS, arch: sm_89, cuda: /usr, plugin: 0, gpu: "3", expect_sm: 1560 }
+    runs-on: [self-hosted, "${{ matrix.device }}"]
+    # 장치마다 runner 가 하나라 job 은 하나씩만 돈다 (측정 겹침 없음). runner 를 늘리면 다시 직렬화해야 한다.
+    # concurrency 그룹은 쓰지 않는다: 대기 job 을 하나만 유지해서 job 이 2개 넘게 몰리면 앞의 대기 job 이 취소된다.
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+
+      # runner 의 .env 에 CUTLASS_DIR 이 있으면 로컬 사본 사용 (디스크 절약), 없으면 submodule
+      - name: CUTLASS
+        run: |
+          if [ -n "${CUTLASS_DIR:-}" ] && [ -d "$CUTLASS_DIR/include" ]; then
+            echo "using local CUTLASS: $CUTLASS_DIR ($(git -C "$CUTLASS_DIR" rev-parse --short HEAD 2>/dev/null))"
+          else
+            git submodule update --init --depth 1 third_party/cutlass
+          fi
+
+      - name: Build
+        run: CUDA=${{ matrix.cuda }} BUILD_PLUGIN=${{ matrix.plugin }} ARCH=${{ matrix.arch }} MODEL=${{ matrix.model }} ./build.sh
+
+      # 서버 GPU: 다른 작업(k3s Job 등)이 쓰는 중이면 최대 10분 기다리고, SM 클럭이 고정값이 아니면 실패.
+      - name: GPU guard
+        if: matrix.gpu != ''
+        run: |
+          for i in $(seq 60); do
+            read sm util < <(nvidia-smi -i ${{ matrix.gpu }} --query-gpu=clocks.sm,utilization.gpu --format=csv,noheader,nounits | tr -d ',')
+            [ "$util" -le 5 ] && break
+            echo "GPU ${{ matrix.gpu }} busy (util ${util}%), waiting..."; sleep 10
+          done
+          [ "$util" -le 5 ] || { echo "::error::GPU ${{ matrix.gpu }} busy for 10 min"; exit 3; }
+          [ "$sm" = "${{ matrix.expect_sm }}" ] || { echo "::error::SM clock ${sm} MHz != ${{ matrix.expect_sm }} (nvidia-smi -i ${{ matrix.gpu }} -lgc 필요)"; exit 3; }
+          echo "GPU ${{ matrix.gpu }}: SM ${sm} MHz, util ${util}%"
+
+      - name: Accuracy + latency
+        run: |
+          [ -n "${{ matrix.gpu }}" ] && export CUDA_VISIBLE_DEVICES=${{ matrix.gpu }}
+          python3 bench/run.py --model ${{ matrix.model }}
+
+      # 측정 결과는 통과/실패와 무관하게 기록 (회귀 추이도 남겨야 하므로).
+      # MLflow 서버 장애가 CI 판정을 바꾸지 않도록 continue-on-error.
+      - name: Log to MLflow
+        if: always() && hashFiles('build/results.json') != ''
+        continue-on-error: true
+        env:
+          MLFLOW_TRACKING_URI: ${{ secrets.MLFLOW_TRACKING_URI }}
+        run: python3 bench/mlflow_log.py build/results.json
+
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: results-${{ matrix.device }}-${{ matrix.model }}-${{ github.sha }}
+          path: build/results.json
+          if-no-files-found: ignore

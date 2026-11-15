@@ -1,0 +1,4 @@
+# 학습 데이터에 있는 모델 (13모델). 선택기 판정과 실측을 바로 맞대 볼 수 있다.
+name: vitL
+timm: vit_large_patch16_224
+chips: [orin, ada, a6000, rtx5090]

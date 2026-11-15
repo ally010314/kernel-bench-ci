@@ -1,0 +1,15 @@
+# 계단 측정: 타일을 고정하고 N 만 늘린다. CTA 가 SM 배수를 넘을 때 시간이 뛰면 SM 가설을 지지한다.
+# 예측: Ada 22, A6000 84, 5090 170, Orin 16 의 배수에서 fc2 시간이 뛴다.
+name: stairs-sm
+type: stairs
+models: models1.txt
+fixed_tile: 128x128_64x64_s3
+tiles:
+  fc1: [128x128]
+  fc2: [128x64, 64x64, 64x32, 128x128]
+  stages: [3]
+stairs: {reps: 3, nmax: 3200}
+targets:
+  ada: {trt: ["10.3.0"], gpus: auto, max_gpus: 1}
+  a6000: {trt: ["10.3.0"], gpus: auto, max_gpus: 1}
+  rtx5090: {trt: ["11.2.1.2"], gpus: auto, max_gpus: 1}

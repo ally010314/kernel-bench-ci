@@ -1,0 +1,9 @@
+#!/bin/sh
+# Grafana 용 읽기 전용 계정 (MLflow 테이블 SELECT 만). postgres 최초 초기화 때 1회 실행.
+set -e
+psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" <<SQL
+CREATE ROLE grafana LOGIN PASSWORD '${GRAFANA_DB_PASSWORD}';
+GRANT CONNECT ON DATABASE ${POSTGRES_DB} TO grafana;
+GRANT USAGE ON SCHEMA public TO grafana;
+ALTER DEFAULT PRIVILEGES FOR ROLE ${POSTGRES_USER} IN SCHEMA public GRANT SELECT ON TABLES TO grafana;
+SQL

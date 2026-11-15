@@ -1,0 +1,8 @@
+deitTd deit_tiny_distilled_patch16_224 192
+flexS flexivit_small 192
+flexL flexivit_large 192
+vitBreg vit_base_patch16_reg4_gap_256 192
+so150m vit_so150m_patch16_reg4_gap_256 192
+dinoS vit_small_patch14_dinov2 192
+beitL512 beit_large_patch16_512 192
+vitL32 vit_large_patch32_224 192

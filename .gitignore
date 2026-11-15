@@ -1,0 +1,26 @@
+# build outputs
+build/
+*.o
+*.so
+*.engine
+*.plan
+*.trt
+
+# weights / data / profiles
+*.bin
+*.pt
+*.pth
+*.onnx
+*.nsys-rep
+*.ncu-rep
+data/
+results/
+mlruns/
+
+# python
+__pycache__/
+*.pyc
+.venv/
+*_env/
+
+*.log

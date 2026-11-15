@@ -1,0 +1,3 @@
+FROM python:3.11-slim
+RUN pip install --no-cache-dir mlflow==3.17.2 psycopg2-binary==2.9.13
+EXPOSE 5000

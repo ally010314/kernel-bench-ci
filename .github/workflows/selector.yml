@@ -1,0 +1,93 @@
+name: selector
+
+# 선택기 (칩 · 모델 → 커스텀 커널 사용 여부 · 타일 설정 · 예상 E2E 이득) 의 학습 · 평가 · 등록 · 판정 · 감시.
+#   PR (selector/** · models/**)  : 단위 테스트 → 데이터 스냅샷으로 재학습 · 등록 기준 판정 → 바뀐 models/*.yml 판정을 PR 댓글로
+#   매일 · 손으로                 : MLflow 최신 측정으로 재학습 → gpu-study/selector 에 run, Model Registry 에 버전 (기준 통과 시 champion)
+#                                   → 지금 커밋된 모델을 최신 데이터에 대 보고 (드리프트) 기준을 넘으면 issue
+# GPU 를 쓰지 않는다. PR 작업은 GitHub 호스트 러너에서 돌아 측정 중인 장비에 부하를 주지 않는다.
+on:
+  pull_request:
+    paths: ["selector/**", "models/**", "experiments/tools/predict_tile.py", ".github/workflows/selector.yml"]
+  schedule:
+    - cron: "17 20 * * *"   # 05:17 KST
+  workflow_dispatch:
+    inputs:
+      register:
+        description: Model Registry 에 버전 등록
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+jobs:
+  test:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.10"}
+      - run: pip install -q numpy pyyaml
+      - name: Unit tests
+        run: python -m unittest discover -s selector/tests -v
+      - name: Retrain on snapshot and gate
+        # 스냅샷 (selector/data/dataset.csv) 으로 다시 학습해 등록 기준 (판정 손해 평균 ≤ 0.1%, 최악 ≤ 2%) 을 본다.
+        run: python -m selector train --data selector/data/dataset.csv --out /tmp/selector.json --report /tmp/report.md
+      - name: Predict changed models
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BASE: ${{ github.event.pull_request.base.sha }}
+        run: |
+          git fetch -q --depth=1 origin "$BASE"
+          files=$(git diff --name-only "$BASE" HEAD -- 'models/*.yml' 'models/*.yaml' | while read f; do [ -f "$f" ] && echo "$f"; done)
+          [ -z "$files" ] && files=$(ls models/*.yml)
+          {
+            echo "<!-- selector-report -->"
+            echo "## 선택기 판정"
+            echo
+            python -m selector predict $files --model-file /tmp/selector.json
+            cat /tmp/report.md
+          } > /tmp/comment.md
+          cat /tmp/comment.md >> "$GITHUB_STEP_SUMMARY"
+          # 같은 PR 의 이전 판정 댓글은 고쳐 쓴다
+          id=$(gh api "repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/comments" --jq '[.[]|select(.body|startswith("<!-- selector-report -->"))][0].id // empty')
+          if [ -n "$id" ]; then gh api -X PATCH "repos/${{ github.repository }}/issues/comments/$id" -F body=@/tmp/comment.md >/dev/null
+          else gh pr comment ${{ github.event.pull_request.number }} --body-file /tmp/comment.md; fi
+
+  retrain:
+    if: github.event_name != 'pull_request'
+    # MLflow 서버는 연구실 내부망이라 Orin runner 에서만 닿는다. CPU 몇 초다.
+    runs-on: [self-hosted, orin]
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - name: Dataset from MLflow
+        env:
+          MLFLOW_TRACKING_URI: ${{ secrets.MLFLOW_TRACKING_URI }}
+        run: python3 -m selector dataset --out /tmp/selector_dataset.csv
+      - name: Drift of committed model
+        id: drift
+        continue-on-error: true
+        run: python3 -m selector drift --data /tmp/selector_dataset.csv
+      - name: Retrain, log, register
+        env:
+          MLFLOW_TRACKING_URI: ${{ secrets.MLFLOW_TRACKING_URI }}
+        run: |
+          reg=""; [ "${{ github.event_name }}" = schedule ] || [ "${{ inputs.register }}" = true ] && reg="--register"
+          python3 -m selector train --data /tmp/selector_dataset.csv --out /tmp/selector.json --log $reg
+      - uses: actions/upload-artifact@v4
+        with:
+          name: selector-${{ github.run_id }}
+          path: /tmp/selector.json
+      - name: Open issue on drift
+        if: steps.drift.outcome == 'failure'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          t="선택기 드리프트: 커밋된 모델의 판정 손해가 기준을 넘음"
+          gh issue list --state open --search "$t in:title" --json number --jq '.[0].number' | grep -q . && exit 0
+          gh issue create --title "$t" --body "최신 측정 데이터에서 커밋된 selector/model/selector.json 의 판정 손해가 기준 (평균 0.1%, 최악 2%) 을 넘었다. run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }} . 새 규칙을 사전 등록하고 다시 학습한다."

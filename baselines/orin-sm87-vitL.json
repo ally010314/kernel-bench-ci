@@ -1,0 +1,67 @@
+{
+  "sha": "0e283ee",
+  "device_info": {
+    "host": "<host-orin>",
+    "model": "NVIDIA Jetson AGX Orin Developer Kit",
+    "gpu_clock_mhz": 1300.5,
+    "clock_locked": true
+  },
+  "results": {
+    "49": {
+      "fused_ms": 0.08899,
+      "fused_p10": 0.08826,
+      "fused_p90": 0.08973,
+      "dense_ms": 0.12682,
+      "fc1_ms": 0.03949,
+      "fc2_ms": 0.04042
+    },
+    "100": {
+      "fused_ms": 0.09754,
+      "fused_p10": 0.09677,
+      "fused_p90": 0.09824,
+      "dense_ms": 0.11859,
+      "fc1_ms": 0.04576,
+      "fc2_ms": 0.04691
+    },
+    "196": {
+      "fused_ms": 0.13706,
+      "fused_p10": 0.13619,
+      "fused_p90": 0.13875,
+      "dense_ms": 0.16592,
+      "fc1_ms": 0.06838,
+      "fc2_ms": 0.06797
+    },
+    "197": {
+      "fused_ms": 0.13693,
+      "fused_p10": 0.13622,
+      "fused_p90": 0.13891,
+      "dense_ms": 0.16573,
+      "fc1_ms": 0.06781,
+      "fc2_ms": 0.06755
+    },
+    "400": {
+      "fused_ms": 0.2423,
+      "fused_p10": 0.24147,
+      "fused_p90": 0.24317,
+      "dense_ms": 0.27101,
+      "fc1_ms": 0.12134,
+      "fc2_ms": 0.12371
+    },
+    "1568": {
+      "fused_ms": 0.79226,
+      "fused_p10": 0.78544,
+      "fused_p90": 0.79635,
+      "dense_ms": 0.91984,
+      "fc1_ms": 0.39286,
+      "fc2_ms": 0.39942
+    },
+    "3136": {
+      "fused_ms": 1.47962,
+      "fused_p10": 1.47379,
+      "fused_p90": 1.48509,
+      "dense_ms": 1.62803,
+      "fc1_ms": 0.75661,
+      "fc2_ms": 0.72685
+    }
+  }
+}

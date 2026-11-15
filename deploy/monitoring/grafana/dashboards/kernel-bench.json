@@ -1,0 +1,449 @@
+{
+  "uid": "kernel-bench",
+  "title": "Kernel bench — FusedMlpL",
+  "schemaVersion": 41,
+  "time": {
+    "from": "now-6M",
+    "to": "now"
+  },
+  "refresh": "5m",
+  "tags": [
+    "kernel-bench"
+  ],
+  "templating": {
+    "list": [
+      {
+        "name": "device",
+        "type": "query",
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "mlflow-pg"
+        },
+        "multi": true,
+        "includeAll": true,
+        "current": {
+          "text": "All",
+          "value": "$__all"
+        },
+        "query": "SELECT DISTINCT t.value FROM tags t JOIN runs r ON r.run_uuid = t.run_uuid JOIN experiments e ON e.experiment_id = r.experiment_id WHERE t.key = 'device' AND e.name = 'kernel-bench' AND r.lifecycle_stage = 'active' ORDER BY 1",
+        "refresh": 2
+      },
+      {
+        "name": "branch",
+        "type": "query",
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "mlflow-pg"
+        },
+        "multi": true,
+        "includeAll": true,
+        "current": {
+          "text": "All",
+          "value": "$__all"
+        },
+        "query": "SELECT DISTINCT t.value FROM tags t JOIN runs r ON r.run_uuid = t.run_uuid JOIN experiments e ON e.experiment_id = r.experiment_id WHERE t.key = 'branch' AND e.name = 'kernel-bench' AND r.lifecycle_stage = 'active' ORDER BY 1",
+        "refresh": 2
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "Latency — fused kernel (median)",
+      "description": "x축은 커밋 시각. 커밋마다 CI 가 측정한 median latency.",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "mlflow-pg"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 12,
+        "h": 9
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "custom": {
+            "drawStyle": "line",
+            "pointSize": 6,
+            "showPoints": "always",
+            "lineWidth": 2
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "calcs": [
+            "lastNotNull",
+            "min",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "mlflow-pg"
+          },
+          "rawQuery": true,
+          "editorMode": "code",
+          "format": "time_series",
+          "rawSql": "SELECT to_timestamp(m.timestamp / 1000.0) AS time,\n       td.value || ' ' || replace(m.key, 'fused_ms/', '') AS series, m.value\nFROM latest_metrics m\nJOIN runs r ON r.run_uuid = m.run_uuid\nJOIN experiments e ON e.experiment_id = r.experiment_id\nJOIN tags td ON td.run_uuid = r.run_uuid AND td.key = 'device'\nJOIN tags tb ON tb.run_uuid = r.run_uuid AND tb.key = 'branch'\nWHERE e.name = 'kernel-bench' AND r.lifecycle_stage = 'active'\n  AND td.value IN ($device) AND tb.value IN ($branch)\n  AND m.timestamp BETWEEN $__unixEpochFrom()::bigint * 1000 AND $__unixEpochTo()::bigint * 1000\n  AND m.key LIKE 'fused_ms/%'\nORDER BY 1"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "Speedup vs cuBLAS dense",
+      "description": "1.0 아래면 dense 보다 느림",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "mlflow-pg"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 0,
+        "w": 12,
+        "h": 9
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "x",
+          "custom": {
+            "drawStyle": "line",
+            "pointSize": 6,
+            "showPoints": "always",
+            "lineWidth": 2
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1.0
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "calcs": [
+            "lastNotNull",
+            "min",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "mlflow-pg"
+          },
+          "rawQuery": true,
+          "editorMode": "code",
+          "format": "time_series",
+          "rawSql": "SELECT to_timestamp(m.timestamp / 1000.0) AS time,\n       td.value || ' ' || replace(m.key, 'speedup/', '') AS series, m.value\nFROM latest_metrics m\nJOIN runs r ON r.run_uuid = m.run_uuid\nJOIN experiments e ON e.experiment_id = r.experiment_id\nJOIN tags td ON td.run_uuid = r.run_uuid AND td.key = 'device'\nJOIN tags tb ON tb.run_uuid = r.run_uuid AND tb.key = 'branch'\nWHERE e.name = 'kernel-bench' AND r.lifecycle_stage = 'active'\n  AND td.value IN ($device) AND tb.value IN ($branch)\n  AND m.timestamp BETWEEN $__unixEpochFrom()::bigint * 1000 AND $__unixEpochTo()::bigint * 1000\n  AND m.key LIKE 'speedup/%'\nORDER BY 1"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "Δ vs baseline",
+      "description": "5% 넘으면 CI 실패",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "mlflow-pg"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 9,
+        "w": 12,
+        "h": 9
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "custom": {
+            "drawStyle": "line",
+            "pointSize": 6,
+            "showPoints": "always",
+            "lineWidth": 2,
+            "thresholdsStyle": {
+              "mode": "line+area"
+            }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 0.02
+              },
+              {
+                "color": "red",
+                "value": 0.05
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "calcs": [
+            "lastNotNull",
+            "min",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "mlflow-pg"
+          },
+          "rawQuery": true,
+          "editorMode": "code",
+          "format": "time_series",
+          "rawSql": "SELECT to_timestamp(m.timestamp / 1000.0) AS time,\n       td.value || ' ' || replace(m.key, 'delta/', '') AS series, m.value\nFROM latest_metrics m\nJOIN runs r ON r.run_uuid = m.run_uuid\nJOIN experiments e ON e.experiment_id = r.experiment_id\nJOIN tags td ON td.run_uuid = r.run_uuid AND td.key = 'device'\nJOIN tags tb ON tb.run_uuid = r.run_uuid AND tb.key = 'branch'\nWHERE e.name = 'kernel-bench' AND r.lifecycle_stage = 'active'\n  AND td.value IN ($device) AND tb.value IN ($branch)\n  AND m.timestamp BETWEEN $__unixEpochFrom()::bigint * 1000 AND $__unixEpochTo()::bigint * 1000\n  AND m.key LIKE 'delta/%'\nORDER BY 1"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "timeseries",
+      "title": "Accuracy — max abs error",
+      "description": "5e-3 넘으면 CI 실패",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "mlflow-pg"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 9,
+        "w": 12,
+        "h": 9
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "sci",
+          "custom": {
+            "drawStyle": "line",
+            "pointSize": 6,
+            "showPoints": "always",
+            "lineWidth": 2,
+            "thresholdsStyle": {
+              "mode": "line+area"
+            }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 0.005
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "calcs": [
+            "lastNotNull",
+            "min",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "mlflow-pg"
+          },
+          "rawQuery": true,
+          "editorMode": "code",
+          "format": "time_series",
+          "rawSql": "SELECT to_timestamp(m.timestamp / 1000.0) AS time,\n       td.value || ' ' || replace(m.key, 'max_err/', '') AS series, m.value\nFROM latest_metrics m\nJOIN runs r ON r.run_uuid = m.run_uuid\nJOIN experiments e ON e.experiment_id = r.experiment_id\nJOIN tags td ON td.run_uuid = r.run_uuid AND td.key = 'device'\nJOIN tags tb ON tb.run_uuid = r.run_uuid AND tb.key = 'branch'\nWHERE e.name = 'kernel-bench' AND r.lifecycle_stage = 'active'\n  AND td.value IN ($device) AND tb.value IN ($branch)\n  AND m.timestamp BETWEEN $__unixEpochFrom()::bigint * 1000 AND $__unixEpochTo()::bigint * 1000\n  AND m.key LIKE 'max_err/%'\nORDER BY 1"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "table",
+      "title": "Recent runs",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "mlflow-pg"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 18,
+        "w": 24,
+        "h": 10
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": ".*Δ"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percentunit"
+              },
+              {
+                "id": "decimals",
+                "value": 1
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "value": null
+                    },
+                    {
+                      "color": "orange",
+                      "value": 0.02
+                    },
+                    {
+                      "color": "red",
+                      "value": 0.05
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "run_url"
+            },
+            "properties": [
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "title": "Actions run",
+                    "url": "${__value.raw}",
+                    "targetBlank": true
+                  }
+                ]
+              },
+              {
+                "id": "displayName",
+                "value": "CI run"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "status"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              },
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "FINISHED": {
+                        "color": "green",
+                        "text": "pass"
+                      },
+                      "FAILED": {
+                        "color": "red",
+                        "text": "fail"
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "mlflow-pg"
+          },
+          "rawQuery": true,
+          "editorMode": "code",
+          "format": "table",
+          "rawSql": "SELECT to_timestamp(r.start_time / 1000.0) AS \"commit time\",\n       ts.value AS sha, td.value AS device, tb.value AS branch, r.status,\n       max(CASE WHEN m.key = 'fused_ms/N196'  THEN m.value END) AS \"N196 ms\",\n       max(CASE WHEN m.key = 'delta/N196'     THEN m.value END) AS \"N196 Δ\",\n       max(CASE WHEN m.key = 'fused_ms/N3136' THEN m.value END) AS \"N3136 ms\",\n       max(CASE WHEN m.key = 'delta/N3136'    THEN m.value END) AS \"N3136 Δ\",\n       max(CASE WHEN m.key LIKE 'max_err/%'   THEN m.value END) AS \"max err\",\n       tu.value AS run_url\nFROM latest_metrics m\nJOIN runs r ON r.run_uuid = m.run_uuid\nJOIN experiments e ON e.experiment_id = r.experiment_id\nJOIN tags td ON td.run_uuid = r.run_uuid AND td.key = 'device'\nJOIN tags tb ON tb.run_uuid = r.run_uuid AND tb.key = 'branch'\nJOIN tags ts ON ts.run_uuid = r.run_uuid AND ts.key = 'sha'\nLEFT JOIN tags tu ON tu.run_uuid = r.run_uuid AND tu.key = 'run_url'\nWHERE e.name = 'kernel-bench' AND r.lifecycle_stage = 'active'\n  AND td.value IN ($device) AND tb.value IN ($branch)\n  AND m.timestamp BETWEEN $__unixEpochFrom()::bigint * 1000 AND $__unixEpochTo()::bigint * 1000\nGROUP BY r.run_uuid, r.start_time, ts.value, td.value, tb.value, r.status, tu.value\nORDER BY r.start_time DESC\nLIMIT 50"
+        }
+      ]
+    }
+  ]
+}

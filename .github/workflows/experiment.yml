@@ -1,0 +1,52 @@
+name: experiment
+
+# YAML 명세로 실험을 시작한다. 사전 점검을 통과해야 장비에서 worker 가 뜬다.
+# worker 는 장비에서 따로 돌고, 진행 판정은 experiment-collect 가 30분마다 한다.
+on:
+  workflow_dispatch:
+    inputs:
+      spec:
+        description: experiments/specs 의 이름
+        required: true
+        default: smoke-a6000
+      only:
+        description: 일부 장비만 (쉼표, 비우면 전체)
+        required: false
+        default: ""
+      mode:
+        description: preflight 는 점검만, run 은 실행까지
+        type: choice
+        options: [preflight, run]
+        default: preflight
+  pull_request:
+    paths: ["experiments/**", ".github/workflows/experiment.yml"]
+
+concurrency:
+  group: experiment-${{ github.event.inputs.spec || github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  # GPU 를 쓰지 않는 검사. 측정 중에도 안전하다.
+  check:
+    runs-on: [self-hosted, orin]
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+      - name: Unit tests
+        run: python3 -m unittest discover -s experiments/tests
+      - name: Validate specs
+        run: python3 experiments/expctl.py validate
+
+  launch:
+    if: github.event_name == 'workflow_dispatch'
+    needs: check
+    runs-on: [self-hosted, orin]
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - name: Preflight and start
+        env:
+          SPEC: ${{ inputs.spec }}
+          ONLY: ${{ inputs.only }}
+          MODE: ${{ inputs.mode }}
+        run: python3 experiments/expctl.py "$MODE" "$SPEC" --only "$ONLY"

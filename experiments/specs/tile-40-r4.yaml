@@ -1,0 +1,13 @@
+# 4차 (v3 재현 검증) 40타일: v3 를 정한 뒤 고른 모델 8개 (dim 192~1024, N 50~1370). 예측은 측정 전에 records/predictions 에 등록했다.
+name: tile-40-r4
+models: models_r4.txt
+fixed_tile: 128x128_64x64_s4
+tiles:
+  fc1: [128x128, 128x64, 128x32, 64x64]
+  fc2: [64x64, 64x32, 128x64, 128x128, 256x64]
+  stages: [3, 4]
+targets:
+  orin: {trt: ["10.3.0"], gpus: auto}
+  ada: {trt: ["10.3.0"], gpus: auto, max_gpus: 2}
+  a6000: {trt: ["10.3.0"], gpus: auto, max_gpus: 4}
+  rtx5090: {trt: ["11.2.1.2"], gpus: auto}

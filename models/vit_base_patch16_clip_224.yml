@@ -1,0 +1,5 @@
+# 학습 데이터에 없는 모델. 모양 (197, 768, 3072) 은 DeiT-B 와 같고 가중치만 다르다.
+name: vitBclip
+timm: vit_base_patch16_clip_224
+shape: {N: 197, dim: 768, hidden: 3072, blocks: 12}
+chips: [orin, ada, a6000, rtx5090]

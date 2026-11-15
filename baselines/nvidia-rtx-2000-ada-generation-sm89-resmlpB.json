@@ -1,0 +1,51 @@
+{
+  "sha": "0e283ee",
+  "device_info": {
+    "host": "<host-ada>",
+    "gpu_clock_mhz": 1560.0,
+    "gpu_util_pct": 0.0,
+    "gpu_uuid": "GPU-<masked>"
+  },
+  "results": {
+    "196": {
+      "fused_ms": 0.09421,
+      "fused_p10": 0.09421,
+      "fused_p90": 0.09523,
+      "dense_ms": 0.11248,
+      "fc1_ms": 0.04813,
+      "fc2_ms": 0.0471
+    },
+    "400": {
+      "fused_ms": 0.12595,
+      "fused_p10": 0.12576,
+      "fused_p90": 0.12608,
+      "dense_ms": 0.17741,
+      "fc1_ms": 0.07885,
+      "fc2_ms": 0.04813
+    },
+    "784": {
+      "fused_ms": 0.22221,
+      "fused_p10": 0.22221,
+      "fused_p90": 0.22323,
+      "dense_ms": 0.31437,
+      "fc1_ms": 0.13107,
+      "fc2_ms": 0.09216
+    },
+    "800": {
+      "fused_ms": 0.22323,
+      "fused_p10": 0.22221,
+      "fused_p90": 0.2233,
+      "dense_ms": 0.31523,
+      "fc1_ms": 0.13107,
+      "fc2_ms": 0.09216
+    },
+    "1568": {
+      "fused_ms": 0.41165,
+      "fused_p10": 0.41062,
+      "fused_p90": 0.41267,
+      "dense_ms": 0.53555,
+      "fc1_ms": 0.23245,
+      "fc2_ms": 0.18022
+    }
+  }
+}

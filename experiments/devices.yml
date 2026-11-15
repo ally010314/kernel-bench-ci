@@ -1,0 +1,60 @@
+# 실험 장비. expctl · collect 가 함께 읽는다. 공개 전에 host 를 지운다.
+orin:
+  host: null
+  chip: orin-sm87
+  sm: 16   # SM 개수 (계단 측정 판정)
+  gpu: Jetson AGX Orin
+  gpus: [0]
+  sm_mhz: 1300
+  trt: ["10.3.0"]
+  sodir: "~/<workdir>/sep_orin/so"
+  kernel: "~/<workdir>/sep_orin/kernels/paper/fused_mlp.cu"
+  driver: "540.4.0"
+  cuda: "12.6"
+  build: {arch: sm_87, nvcc_bin: /usr/local/cuda-12.6/bin, cutlass_inc: "~/<workdir>/sep_orin/cutp/include", cutlass_util: "~/<workdir>/sep_orin/tools/util/include", trt_inc: "/usr/include/aarch64-linux-gnu", cuda_inc: /usr/local/cuda-12.6/include, cuda_lib: /usr/local/cuda-12.6/lib64}
+ada:
+  host: <host-ada>
+  chip: ada-sm89
+  sm: 22   # SM 개수 (계단 측정 판정)
+  gpu: RTX 2000 Ada
+  gpus: [1, 2]
+  sm_mhz: 1560
+  hold_gb: 4      # 측정 중 메모리 예약. keep_gb 는 측정용으로 남긴다
+  keep_gb: 11
+  trt: ["10.3.0", "11.2.1.2"]
+  sodir: "~/fc2_tile/mx/sv/{trt}"
+  kernel: "~/fc2_tile/mx/s5/s2/kernels/paper/fused_mlp.cu"
+  driver: "595.99.02"
+  cuda: ""
+  build: {arch: sm_89, nvcc_bin: /usr/bin, cutlass_inc: "~/fc2_tile/mx/s5/cutp/include", cutlass_util: "~/fc2_tile/mx/s5/tools/util/include", trt_inc: "~/trt_inc/{major}", cuda_inc: /usr/include, cuda_lib: /usr/lib64}
+a6000:
+  host: <host-a6000>
+  chip: a6000-sm86
+  sm: 84   # SM 개수 (계단 측정 판정)
+  gpu: RTX A6000
+  gpus: [0, 1, 2, 3, 4, 5, 6]   # auto 는 다른 사용자가 쓰는 GPU 를 건너뛴다
+  sm_mhz: 1800
+  hold_gb: 36
+  keep_gb: 12
+  trt: ["10.3.0", "11.2.1.2"]
+  sodir: "~/fz2/mx/sv/{trt}"
+  kernel: "~/fz2/s5/s2/kernels/paper/fused_mlp.cu"
+  ld_prefix: /usr/local/cuda-12.1/lib64
+  driver: "560.35.03"
+  cuda: "12.1"
+  build: {arch: sm_86, nvcc_bin: /usr/local/cuda-12.1/bin, ccbin: /usr/bin/g++-11, cutlass_inc: "~/fz2/s5/cutp/include", cutlass_util: "~/fz2/s5/tools/util/include", trt_inc: "~/trt_inc/{major}", cuda_inc: /usr/local/cuda-12.1/include, cuda_lib: /usr/local/cuda-12.1/lib64}
+rtx5090:
+  host: <host-5090>
+  chip: rtx5090-sm100
+  sm: 170   # SM 개수 (계단 측정 판정)
+  gpu: RTX 5090
+  gpus: [0, 1]
+  sm_mhz: 2400
+  hold_gb: 20
+  keep_gb: 12
+  trt: ["11.2.1.2"]   # 10.3 은 Unsupported SM: 0xc00
+  sodir: "~/fz/mx/sv/{trt}"
+  kernel: "~/fz/s2/kernels/paper/fused_mlp.cu"
+  driver: "580.178.04"
+  cuda: "12.8"
+  build: {arch: sm_100, nvcc_bin: /usr/local/cuda-12.8/bin, cutlass_inc: "~/fz/cutp/include", cutlass_util: "~/fz/cutp/tools/util/include", trt_inc: "~/trt_inc/{major}", cuda_inc: /usr/local/cuda-12.8/include, cuda_lib: /usr/local/cuda-12.8/lib64}

@@ -1,0 +1,6 @@
+# 파이프라인 시연용. DeiT-S 하나를 빈 GPU 에서 끝까지 잰다.
+name: smoke-a6000
+models: models1.txt
+fixed_tile: 128x128_64x64_s4
+targets:
+  a6000: {trt: ["10.3.0"], gpus: auto, max_gpus: 1}
